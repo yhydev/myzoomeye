@@ -2,7 +2,6 @@ import argparse
 from asyncio.log import logger
 import logging
 from time import time
-from typing_extensions import Self
 import requests
 import time
 import math
