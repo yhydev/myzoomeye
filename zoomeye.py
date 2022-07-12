@@ -6,6 +6,7 @@ import requests
 import time
 import math
 from datetime import date, datetime, timedelta
+from ratelimit import limits
 
 from zoomeye_test import do_request_test
 
@@ -48,7 +49,7 @@ class Util:
         results.append(result)
         continue
       days = (datetime.now().date() - datetime(year, 1, 1).date()).days
-      searchs = [search_prefix + "+ before:'%s' + after:'%s'" % (Util.__GET_DATE_BY_YEAR_AND_DAYS(year, _ + 1), Util.__GET_DATE_BY_YEAR_AND_DAYS(year, _ + 2)) for _ in range(days)]
+      searchs = [search_prefix + "+ after:'%s' + before:'%s'" % (Util.__GET_DATE_BY_YEAR_AND_DAYS(year, _ + 1), Util.__GET_DATE_BY_YEAR_AND_DAYS(year, _ + 2)) for _ in range(days)]
       results.extend(searchs)
     return list(set(results))
 
@@ -106,8 +107,6 @@ class Zoomeye:
 
   #__ENDPOING = "https://www.zoomeye.org/"
 
-  __MIN_REQUEST_TIME = 0
-
   def __init__(self, cube_authorization, endpoint="https://www.zoomeye.org") -> None:
     self.__cube_auth = cube_authorization
     self.__endpoint = endpoint
@@ -115,10 +114,6 @@ class Zoomeye:
     pass
   
   def do_request(self, path, **kw):
-    wait_time = Zoomeye.__NEXT_REQUEST_TIME - time.time()
-    if wait_time > 0:
-      time.sleep(wait_time)
-    Zoomeye.__NEXT_REQUEST_TIME = time.time() + 5
     kw["url"] = "%s%s" % (self.__endpoint, path)
     headers = kw.get("headers", {})
     headers['Cube-Authorization'] = self.__cube_auth
@@ -129,6 +124,7 @@ class Zoomeye:
       logging.warning("response_errp: [%s]", resp_json['status'])
     return resp_json
 
+  #@limits(calls=1, period=1)
   def search(self, params):
     """
     curl 'https://www.zoomeye.org/search?q=app%253A%2527thinkphp%2527%2520%252Bcountry%253A%2520%2527%25E7%25A7%2598%25E9%25B2%2581%2527&page=1&pageSize=20&t=v4%2Bv6%2Bweb' \
@@ -153,6 +149,16 @@ class Zoomeye:
       params=params,
       method="GET"
       )
+
+  def validate_captcha(self, rnd, code):
+    return self.do_request(
+        path="/captcha/validate",
+        params={
+            "rnd": rnd,
+            "code": code
+        },
+        method="GET"
+    )
 
   def aggs(self, search, field):
     return self.do_request(
