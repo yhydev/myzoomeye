@@ -6,9 +6,13 @@ import requests
 import time
 import math
 from datetime import date, datetime, timedelta
-from ratelimit import limits
 
-from zoomeye_test import do_request_test
+class ApiResponseException(Exception):
+    def __init__(self,errorinfo):
+        super().__init__(self)
+        self.errorinfo = errorinfo
+    def __str__(self):
+        return self.errorinfo
 
 class AggFields:
   COUNTRY = "country"
@@ -51,7 +55,11 @@ class Util:
       days = (datetime.now().date() - datetime(year, 1, 1).date()).days
       searchs = [search_prefix + "+ after:'%s' + before:'%s'" % (Util.__GET_DATE_BY_YEAR_AND_DAYS(year, _ + 1), Util.__GET_DATE_BY_YEAR_AND_DAYS(year, _ + 2)) for _ in range(days)]
       results.extend(searchs)
-    return list(set(results))
+    return_results = []
+    for result in results:
+      if self._zoomeye.aggs(result, 'country')['total'] != 0:
+        return_results.append(return_results)
+    return list(set(return_results))
 
   def get_search(self, q, 
     aggs_targets = [
@@ -121,7 +129,8 @@ class Zoomeye:
     kw['headers'] = headers
     resp_json = requests.request(**kw).json()
     if resp_json['status'] != 200:
-      logging.warning("response_errp: [%s]", resp_json['status'])
+      logging.warning("response_errp: [%s] [%s] [%s]", path, kw, resp_json)
+      raise ApiResponseException("response_errp: [%s] [%s] [%s]" % (path, kw, resp_json))
     return resp_json
 
   #@limits(calls=1, period=1)

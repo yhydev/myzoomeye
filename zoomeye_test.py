@@ -44,8 +44,6 @@ def zoomeye_search():
 
 
 def util_get_sites_test():
-    code = "ty48uo"
-    rnd = "2a00ef7fa82e7670aa5f7a24fca9e6a61b0d8781ab7b40f43e252762553fdf86f3a7a8662ef5b915fa1ffd45264d5c6c"
     with open('targets3','r') as f:
         querys = [line.strip() for line in f.readlines()]
     ze = zoomeye.Zoomeye(__AUTH)
@@ -58,20 +56,20 @@ def util_get_sites_test():
                 result = zoomeye.Util(__AUTH).get_sites({
                     "q":query
                     })
-                result = [ "http://" + r for r in result]
+                logging.info("search_result: %s", result)
                 for r in result:
                     logging.info("util_get_sites_result: [%s]", r)
                 break
             except Exception as e:
-                logging.info("validate_result: %s", resp_json)
-                time.sleep(60)
+                logging.warning("search_error: %s", e)
+                time.sleep(5)
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     #do_request_test()
     #aggs_test()
-    #util_get_search_test()
+    util_get_search_test()
     #zoomeye_search()
     #util_get_search_by_year_test()
-    util_get_sites_test()
+    #util_get_sites_test()
