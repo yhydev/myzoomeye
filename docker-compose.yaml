@@ -5,4 +5,11 @@ services:
     volumes:
     - .:/app
     working_dir: /app
-    command: ['python', 'zoomeye_test.py']
+    command: ["sh","-c","celery -A zoomeye_tasks worker --loglevel=debug"]
+    environment:
+        "CELERY_BROKER": ${CELERY_BROKER}
+        "CELERY_BACKEND": ${CELERY_BACKEND}
+        "ZOOMEYE_AUTH": ${ZOOMEYE_AUTH}
+        "MONGO_URL": ${MONGO_URL}
+        "MONGO_DATABASE": ${MONGO_DATABASE}
+        "HTTP_PROXY": ${HTTP_PROXY}

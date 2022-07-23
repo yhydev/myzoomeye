@@ -1,5 +1,3 @@
-import imp
-import site
 import pymongo
 import os
 import logging

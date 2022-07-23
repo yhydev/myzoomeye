@@ -5,6 +5,7 @@ from time import time
 import requests
 import time
 import math
+import os
 from datetime import date, datetime, timedelta
 
 class ApiResponseException(Exception):
@@ -127,9 +128,14 @@ class Zoomeye:
     headers['Cube-Authorization'] = self.__cube_auth
     headers['user-agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.0.0 Safari/537.36'
     kw['headers'] = headers
-    resp_json = requests.request(**kw).json()
+    while True:
+      try:
+        resp_json = requests.request(**kw).json()
+        break
+      except Exception as e:
+        logging.warning("request_err: %s %s %s", path, type(e), e)
     if resp_json['status'] != 200:
-      logging.warning("response_errp: [%s] [%s] [%s]", path, kw, resp_json)
+      logging.warning("response_err: [%s] [%s] [%s]", path, kw, resp_json)
       raise ApiResponseException("response_errp: [%s] [%s] [%s]" % (path, kw, resp_json))
     return resp_json
 
