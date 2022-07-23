@@ -86,6 +86,9 @@ def start_search(params):
         mongo_sites.save(params['q'], sites)
     else:
         logging.warning("search_result_empty: [%s]", params)
+        if os.environ.get("SEARCH_RETRY", "true") != "false":
+            logging.warning("search_retry: [%s]", params)
+            start_search.delay(params)
     if len(sites) == pageSize and math.ceil(_MAX_TOTAL / pageSize) >= page + 1:
         params['page'] = page + 1
         start_search.delay(params)
