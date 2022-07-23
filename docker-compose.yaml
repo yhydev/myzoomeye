@@ -12,4 +12,4 @@ services:
         "ZOOMEYE_AUTH": ${ZOOMEYE_AUTH}
         "MONGO_URL": ${MONGO_URL}
         "MONGO_DATABASE": ${MONGO_DATABASE}
-        "HTTP_PROXY": ${HTTP_PROXY}
+        "HTTPS_PROXY": ${HTTPS_PROXY}
