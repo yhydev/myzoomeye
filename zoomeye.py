@@ -128,6 +128,10 @@ class Zoomeye:
     headers['Cube-Authorization'] = self.__cube_auth
     headers['user-agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.0.0 Safari/537.36'
     kw['headers'] = headers
+    if not kw.get("timeout"):
+      connect_timeout = kw.get("timeout", os.environ.get('REQUEST_CONNECT_TIMEOUT', "21"))
+      read_timeout = kw.get("timeout", os.environ.get('REQUEST_READ_TIMEOUT', "21"))
+      kw['timeout'] = (float(connect_timeout), float(read_timeout))
     while True:
       try:
         resp_json = requests.request(**kw).json()
