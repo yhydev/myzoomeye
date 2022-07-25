@@ -81,15 +81,20 @@ def start_search(params):
     params['page'] = page
     logging.info("start_search: [%s]", params)
     result = _zoomeye.search(params)
+    total = result['total']
     sites = [matche.get("site", matche.get("ip")) for matche in result['matches']]
     if len(sites) > 0:
         mongo_sites.save(params['q'], sites)
     else:
-        logging.warning("search_result_empty: [%s]", params)
-        if os.environ.get("SEARCH_RETRY", "true") != "false":
-            logging.warning("search_retry: [%s]", params)
-            start_search.delay(params)
-    if len(sites) == pageSize and math.ceil(_MAX_TOTAL / pageSize) >= page + 1:
+        real_total = _zoomeye.aggs(params['q'], 'country')['total']
+        if total != real_total:
+            logging.warning("search_result_empty: [%s]", params)
+            if os.environ.get("SEARCH_RETRY", "true") != "false":
+                logging.warning("search_retry: [%s]", params)
+                start_search.delay(params)
+        else:
+            return
+    if len(sites) == pageSize and math.ceil(total / pageSize) >= page + 1:
         params['page'] = page + 1
         start_search.delay(params)
 
