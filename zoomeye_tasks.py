@@ -73,12 +73,15 @@ def run_search(params):
         start_search(params)
 
 
-@_app.task(name="zoomeye.start_search", rate_limit='5/m', retry_kwargs={'max_retries': 10}, autoretry_for=[ApiResponseException])
+@_app.task(name="zoomeye.start_search", rate_limit='1/m', retry_kwargs={'max_retries': 10}, autoretry_for=[ApiResponseException])
 def start_search(params):
     pageSize = params.get("pageSize", 50)
     params['pageSize'] = pageSize
     page = params.get("page", 1)
     params['page'] = page
+    if page * pageSize > _MAX_TOTAL:
+        logging.warning("invalid_search_page: %s", params)
+        return
     logging.info("start_search: [%s]", params)
     result = _zoomeye.search(params)
     total = result['total']
