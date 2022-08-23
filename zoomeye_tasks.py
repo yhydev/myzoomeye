@@ -1,5 +1,5 @@
 from celery import Celery
-from zoomeye import Zoomeye, ApiResponseException
+from zoomeye import Zoomeye
 import os
 import time
 import logging
@@ -10,6 +10,7 @@ _broker = os.environ['CELERY_BROKER']
 _backend = os.environ.get('CELERY_BACKEND', None)
 _auth = os.environ['ZOOMEYE_AUTH']
 _app = Celery(broker=_broker, backend=_backend)
+_app.conf.broker_transport_options = {'visibility_timeout': 90}
 _zoomeye = Zoomeye(_auth)
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,7 @@ def __generate_year_and_month_date_query(year, month):
         before = datetime(year, month + 1, 1).date()
     return __generate_date_query(after, before)
 
-@_app.task(name="zoomeye.generate_years_search")
+@_app.task(name="zoomeye.generate_years_search", retry_kwargs={'max_retries': None, 'countdown': 5}, autoretry_for=[Exception])
 def generate_years_search(search_prefix):
     for year_count in _zoomeye.aggs(search_prefix, 'year')['year']:
         year = year_count['name']
@@ -47,7 +48,7 @@ def generate_years_search(search_prefix):
             for month in range(12):
                 generate_month_search_by_year.delay(search_prefix, year, month + 1)
         
-@_app.task(name="zoomeye.generate_month_search_by_year")
+@_app.task(name="zoomeye.generate_month_search_by_year", retry_kwargs={'max_retries': None, 'countdown': 5}, autoretry_for=[Exception])
 def generate_month_search_by_year(search_prefix, year, month):
     logging.info("generate_month_search_by_year: [%s %s %s]", search_prefix, year, month)
     q = search_prefix + " +" + __generate_year_and_month_date_query(year, month)
@@ -66,14 +67,14 @@ def generate_month_search_by_year(search_prefix, year, month):
                 __run_search(q)
 
 
-@_app.task(name="zoomeye.run_search", rate_limit="60/m", retry_kwargs={'max_retries': 10}, autoretry_for=[ApiResponseException])
+@_app.task(name="zoomeye.run_search", retry_kwargs={'max_retries': None, 'countdown': 5}, autoretry_for=[Exception])
 def run_search(params):
     total = _zoomeye.aggs(params['q'], 'country')['total']
     if total != 0:
         start_search(params)
 
 
-@_app.task(name="zoomeye.start_search", rate_limit='1/m', retry_kwargs={'max_retries': 10}, autoretry_for=[ApiResponseException])
+@_app.task(name="zoomeye.start_search", retry_kwargs={'max_retries': None, 'countdown': 5}, autoretry_for=[Exception])
 def start_search(params):
     pageSize = params.get("pageSize", 50)
     params['pageSize'] = pageSize
@@ -82,12 +83,15 @@ def start_search(params):
     if page * pageSize > _MAX_TOTAL:
         logging.warning("invalid_search_page: %s", params)
         return
+    if mongo_sites.exists(params):
+        logging.info("search_exists: %s", params)
+        return
     logging.info("start_search: [%s]", params)
     result = _zoomeye.search(params)
     total = result['total']
-    sites = [matche.get("site", matche.get("ip")) for matche in result['matches']]
+    sites = result['matches']
     if len(sites) > 0:
-        mongo_sites.save(params['q'], sites)
+        mongo_sites.save(params, sites)
     else:
         real_total = _zoomeye.aggs(params['q'], 'country')['total']
         if total != real_total:
@@ -116,7 +120,7 @@ def __run_search(q):
         "page": 1
     })
 
-@_app.task(name="zoomeye.generate_search")
+@_app.task(name="zoomeye.generate_search", retry_kwargs={'max_retries': None, 'countdown': 5}, autoretry_for=[Exception])
 def generate_search(q,
                   aggs_targets=[
                        "country",
@@ -142,6 +146,7 @@ def generate_search(q,
         agg_result = _zoomeye.aggs(q, agg_target_field)
         if agg_result['total'] <= _MAX_TOTAL:
             __run_search(q)
+            break
         else:
             for agg_result_item in agg_result[agg_target_field]:
                 agg_result_item_count = agg_result_item['count']
