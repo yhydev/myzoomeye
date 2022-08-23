@@ -7,6 +7,7 @@ import time
 import math
 import os
 from datetime import date, datetime, timedelta
+from ratelimit import limits
 
 class ApiResponseException(Exception):
     def __init__(self,errorinfo):
@@ -122,22 +123,27 @@ class Zoomeye:
     Zoomeye.__NEXT_REQUEST_TIME = 0
     pass
   
+  @limits(calls=5, period=1)
   def do_request(self, path, **kw):
     kw["url"] = "%s%s" % (self.__endpoint, path)
     headers = kw.get("headers", {})
     headers['Cube-Authorization'] = self.__cube_auth
-    headers['user-agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.0.0 Safari/537.36'
+    headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.0.0 Safari/537.36'
+    headers['Accept'] = "application/json, text/plain, */*"
     kw['headers'] = headers
     if not kw.get("timeout"):
       connect_timeout = kw.get("timeout", os.environ.get('REQUEST_CONNECT_TIMEOUT', "21"))
       read_timeout = kw.get("timeout", os.environ.get('REQUEST_READ_TIMEOUT', "21"))
       kw['timeout'] = (float(connect_timeout), float(read_timeout))
+    logging.info("request: [%s]", kw)
     while True:
       try:
         resp_json = requests.request(**kw).json()
         break
       except Exception as e:
         logging.warning("request_err: %s %s %s", path, type(e), e)
+        time.sleep(5)
+      
     if resp_json['status'] != 200:
       logging.warning("response_err: [%s] [%s] [%s]", path, kw, resp_json)
       raise ApiResponseException("response_errp: [%s] [%s] [%s]" % (path, kw, resp_json))
